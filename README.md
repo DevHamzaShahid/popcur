@@ -1,97 +1,168 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# PopCurb Parking App
 
-# Getting Started
+A React Native parking app with 3 screens that provides pixel-perfect map integration, route navigation, and real-time location tracking.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+### Screen 1: Set Price Range
+- Interactive map with clustered parking spots
+- Custom price range slider for filtering spots
+- Floating pin button for location services
+- Popcorn marker for nearest available spot
+- Custom cluster markers for grouped spots
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### Screen 2: Get Directions
+- Route visualization with directions to selected parking spot
+- Real-time route calculations using react-native-maps-directions
+- Interactive spot selection with route updates
+- Spot details in bottom sheet with arrival time and distance
+- Share and close functionality
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### Screen 3: Start Journey (Live Navigation)
+- Live GPS tracking with automatic location updates
+- 3D map view with heading-based rotation
+- Real-time distance calculations
+- Arrival detection and notifications
+- Navigation overlay with turn-by-turn style interface
 
-```sh
-# Using npm
-npm start
+## Technical Implementation
 
-# OR using Yarn
-yarn start
+### Map Features
+- **Google Maps Provider**: Full Google Maps integration
+- **Custom Markers**: Direction arrow, popcorn icon, and cluster markers
+- **Haversine Formula**: Accurate distance calculations between coordinates
+- **Route Clustering**: Intelligent grouping of nearby parking spots
+- **Auto-rotation**: Map rotates based on user heading during navigation
+
+### Navigation & Animations
+- **React Navigation**: Stack navigator with smooth transitions
+- **Gesture Handling**: Smooth bottom sheet interactions
+- **Camera Animations**: Dynamic map camera movements
+- **Real-time Updates**: Live location tracking every 5 meters
+
+### Permissions & Platform Support
+- **iOS**: Location permissions configured in Info.plist
+- **Android**: Fine and coarse location permissions
+- **Cross-platform**: Consistent behavior on both platforms
+
+## Installation & Setup
+
+### Prerequisites
+- React Native development environment
+- Google Maps API key (for directions)
+- iOS/Android development setup
+
+### Installation Steps
+
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **iOS Setup**
+   ```bash
+   cd ios && pod install && cd ..
+   ```
+
+3. **Google Maps API Key**
+   - Get a Google Maps API key from Google Cloud Console
+   - Replace `YOUR_GOOGLE_MAPS_API_KEY` in `src/screens/GetDirectionsScreen.tsx`
+
+4. **Run the App**
+   ```bash
+   # iOS
+   npm run ios
+   
+   # Android
+   npm run android
+   ```
+
+## Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── DirectionArrowMarker.tsx    # Custom arrow marker
+│   ├── PopcornMarker.tsx          # Nearest spot marker
+│   ├── ParkingClusterMarker.tsx   # Cluster marker
+│   └── PriceRangeSlider.tsx       # Price filter slider
+├── constants/          # Mock data and constants
+│   └── mockData.ts     # Sample parking spots
+├── navigation/         # Navigation configuration
+│   └── AppNavigator.tsx
+├── screens/           # Main application screens
+│   ├── SetPriceRangeScreen.tsx    # Screen 1
+│   ├── GetDirectionsScreen.tsx    # Screen 2
+│   └── StartJourneyScreen.tsx     # Screen 3
+├── types/             # TypeScript interfaces
+│   └── index.ts
+└── utils/             # Utility functions
+    └── mapUtils.ts    # Map calculations and helpers
 ```
 
-## Step 2: Build and run your app
+## Key Packages Used
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- `react-native-maps`: Map integration with Google Maps provider
+- `react-native-maps-directions`: Route directions and polylines
+- `@react-native-community/geolocation`: Location services
+- `react-native-actions-sheet`: Bottom sheet functionality
+- `@react-navigation/native`: Navigation between screens
+- `react-native-svg`: Custom vector icons and markers
+- `react-native-reanimated`: Smooth animations
+- `@react-native-community/slider`: Price range controls
 
-### Android
+## Configuration Notes
 
-```sh
-# Using npm
-npm run android
+### Google Maps API Key
+For full functionality, you need to:
+1. Enable Maps SDK for Android/iOS in Google Cloud Console
+2. Enable Directions API for route calculations
+3. Add the API key to the project
 
-# OR using Yarn
-yarn android
-```
+### Location Permissions
+The app requests location permissions on first launch:
+- **iOS**: "When in Use" location permission
+- **Android**: Fine and coarse location permissions
 
-### iOS
+### Mock Data
+The app includes sample parking data for San Francisco area. Replace with real data in `src/constants/mockData.ts`.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Development Notes
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Live Navigation Features
+- Uses `watchPosition` for continuous location updates
+- Implements distance-based filtering (updates every 5 meters)
+- Automatic arrival detection (within 50 meters)
+- 3D map view with pitch and heading rotation
 
-```sh
-bundle install
-```
+### Performance Optimizations
+- Marker clustering for large datasets
+- Distance-based location updates
+- Efficient coordinate calculations using Haversine formula
+- Smooth animations with React Native Reanimated
 
-Then, and every time you update your native dependencies, run:
+### Customization
+- Easily customizable marker designs in components folder
+- Configurable price ranges and spot filtering
+- Adjustable map camera behavior and zoom levels
+- Modular screen components for easy modification
 
-```sh
-bundle exec pod install
-```
+## Troubleshooting
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### Common Issues
+1. **Maps not loading**: Check Google Maps API key configuration
+2. **Location not working**: Verify permissions in device settings
+3. **Navigation crashes**: Ensure location services are enabled
+4. **Directions not showing**: Verify Directions API is enabled
 
-```sh
-# Using npm
-npm run ios
+### iOS Specific
+- Ensure location permissions are granted in device settings
+- Check Info.plist has correct usage descriptions
 
-# OR using Yarn
-yarn ios
-```
+### Android Specific
+- Verify all location permissions in AndroidManifest.xml
+- Check Google Play Services are installed and updated
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## License
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+This project is for demonstration purposes.
