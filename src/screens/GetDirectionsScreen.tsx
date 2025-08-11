@@ -131,10 +131,33 @@ const GetDirectionsScreen: React.FC = () => {
   };
 
   const handleMarkerPress = (spot: ParkingSpot) => {
+    // If currently navigating, stop navigation first
+    if (isNavigating) {
+      stopNavigation();
+      
+      // Reset map to overview when stopping navigation
+      if (mapRef.current && userLocation) {
+        const coordinates = [
+          userLocation,
+          { latitude: spot.latitude, longitude: spot.longitude },
+        ];
+        const region = getRegionForCoordinates(coordinates, 0.02);
+        if (region) {
+          mapRef.current.animateToRegion(region, 800);
+        }
+      }
+    }
+    
+    // Set new selected spot
     setSelectedSpot(spot);
+    
+    // Show bottom sheet for the new spot
+    setTimeout(() => {
+      actionSheetRef.current?.show();
+    }, isNavigating ? 600 : 300); // Longer delay if stopping navigation
   };
 
-  const TARGET_NAV_ZOOM = 21; // Even tighter zoom for navigation
+  const TARGET_NAV_ZOOM = 18; // Better zoom level for functionality
 
   const handleStartNavigation = () => {
     if (!userLocation || routeCoordinates.length === 0) return;
@@ -155,15 +178,15 @@ const GetDirectionsScreen: React.FC = () => {
     lastHeadingRef.current = initialBearing;
     
     if (mapRef.current) {
-      // Center on current location with very tight zoom
+      // Center on current location with tight zoom
       mapRef.current.animateCamera(
         {
           center: userLocation, // Center directly on user location
-          pitch: 70, // Even higher pitch for better navigation view
+          pitch: 65, // Good pitch for navigation view
           heading: initialBearing, // Route bearing - this makes route point north
-          zoom: TARGET_NAV_ZOOM, // Very tight zoom
+          zoom: TARGET_NAV_ZOOM, // Tight zoom
         },
-        { duration: 1200 }, // Longer animation to clearly see the zoom
+        { duration: 1000 }, // Smooth animation to see the zoom
       );
     }
 
@@ -271,25 +294,25 @@ const GetDirectionsScreen: React.FC = () => {
     const smoothedHeading = (previous + diff * 0.5 + 360) % 360; // More responsive smoothing
     lastHeadingRef.current = smoothedHeading;
 
-    // Dynamic zoom based on distance to destination - very tight
+    // Dynamic zoom based on distance to destination
     let dynamicZoom = TARGET_NAV_ZOOM;
     if (distanceToDest < 0.05) { // Very close - zoom in more
-      dynamicZoom = TARGET_NAV_ZOOM + 2;
+      dynamicZoom = TARGET_NAV_ZOOM + 1.5;
     } else if (distanceToDest < 0.1) { // Close - zoom in slightly
-      dynamicZoom = TARGET_NAV_ZOOM + 1;
+      dynamicZoom = TARGET_NAV_ZOOM + 0.5;
     } else if (distanceToDest > 0.5) { // Far away - slight zoom out
-      dynamicZoom = TARGET_NAV_ZOOM - 0.5;
+      dynamicZoom = TARGET_NAV_ZOOM - 1;
     }
 
     // CONTINUOUS AUTO-ROTATION: Keep route pointing north
     mapRef.current.animateCamera(
       {
         center, // Center directly on current location
-        pitch: 70, // High pitch for immersive navigation
+        pitch: 65, // Good pitch for navigation
         heading: smoothedHeading, // Use route bearing directly to point north
         zoom: dynamicZoom,
       },
-      { duration: 500 }, // Smooth animation
+      { duration: 400 }, // Faster animation for better responsiveness
     );
   };
 
