@@ -134,7 +134,7 @@ const GetDirectionsScreen: React.FC = () => {
     setSelectedSpot(spot);
   };
 
-  const TARGET_NAV_ZOOM = 20; // Much tighter zoom for navigation
+  const TARGET_NAV_ZOOM = 21; // Even tighter zoom for navigation
 
   const handleStartNavigation = () => {
     if (!userLocation || routeCoordinates.length === 0) return;
@@ -146,7 +146,7 @@ const GetDirectionsScreen: React.FC = () => {
       Geolocation.clearWatch(watchIdRef.current);
     }
     
-    // IMMEDIATE NAVIGATION START: Zoom in tight on current location and auto-rotate
+    // IMMEDIATE NAVIGATION START: Zoom in very tight on current location and auto-rotate
     const { bearing: initialBearing, next } = computeUpcoming(
       userLocation,
       routeCoordinates,
@@ -159,11 +159,11 @@ const GetDirectionsScreen: React.FC = () => {
       mapRef.current.animateCamera(
         {
           center: userLocation, // Center directly on user location
-          pitch: 65, // Increased pitch for better 3D effect
-          heading: 360 - initialBearing, // Route points north immediately
-          zoom: TARGET_NAV_ZOOM, // Much tighter zoom
+          pitch: 70, // Even higher pitch for better navigation view
+          heading: initialBearing, // Route bearing - this makes route point north
+          zoom: TARGET_NAV_ZOOM, // Very tight zoom
         },
-        { duration: 1000 }, // Longer animation to see the zoom effect
+        { duration: 1200 }, // Longer animation to clearly see the zoom
       );
     }
 
@@ -184,11 +184,8 @@ const GetDirectionsScreen: React.FC = () => {
           routeCoordinates,
         );
         
-        // Use device heading if available, otherwise use route bearing
-        const resolvedHeading =
-          Number.isFinite(deviceHeading) && deviceHeading !== null
-            ? deviceHeading
-            : upcomingBearing;
+        // Use route bearing for consistent north-pointing behavior
+        const resolvedHeading = upcomingBearing;
         setHeading(resolvedHeading);
 
         // Distance to destination
@@ -198,9 +195,8 @@ const GetDirectionsScreen: React.FC = () => {
         });
         setRemainingDistance(dist);
 
-        // Use look-ahead center for continuous navigation
-        const forwardCenter = getLookaheadCenter(newLoc, next, 0.15);
-        animateNavigationCamera(forwardCenter, resolvedHeading, dist);
+        // Center directly on current location for tight navigation
+        animateNavigationCamera(newLoc, resolvedHeading, dist);
 
         if (dist < CONFIG.ARRIVAL_THRESHOLD) {
           stopNavigation();
@@ -269,31 +265,31 @@ const GetDirectionsScreen: React.FC = () => {
   ) => {
     if (!mapRef.current) return;
     
-    // Enhanced heading smoothing to avoid jitter
+    // Smooth the heading to avoid jittery camera movement
     const previous = lastHeadingRef.current;
     const diff = ((newHeading - previous + 540) % 360) - 180; // shortest angle
-    const smoothedHeading = (previous + diff * 0.4 + 360) % 360; // Increased smoothing
+    const smoothedHeading = (previous + diff * 0.5 + 360) % 360; // More responsive smoothing
     lastHeadingRef.current = smoothedHeading;
 
-    // Dynamic zoom based on distance to destination - much tighter
+    // Dynamic zoom based on distance to destination - very tight
     let dynamicZoom = TARGET_NAV_ZOOM;
     if (distanceToDest < 0.05) { // Very close - zoom in more
       dynamicZoom = TARGET_NAV_ZOOM + 2;
     } else if (distanceToDest < 0.1) { // Close - zoom in slightly
       dynamicZoom = TARGET_NAV_ZOOM + 1;
-    } else if (distanceToDest > 1) { // Far away - still keep tight zoom
-      dynamicZoom = TARGET_NAV_ZOOM - 1;
+    } else if (distanceToDest > 0.5) { // Far away - slight zoom out
+      dynamicZoom = TARGET_NAV_ZOOM - 0.5;
     }
 
     // CONTINUOUS AUTO-ROTATION: Keep route pointing north
     mapRef.current.animateCamera(
       {
-        center,
-        pitch: 65, // Higher pitch for better navigation view
-        heading: 360 - smoothedHeading, // Always keep route pointing "up"
+        center, // Center directly on current location
+        pitch: 70, // High pitch for immersive navigation
+        heading: smoothedHeading, // Use route bearing directly to point north
         zoom: dynamicZoom,
       },
-      { duration: 600 }, // Smooth animation
+      { duration: 500 }, // Smooth animation
     );
   };
 
@@ -355,9 +351,8 @@ const GetDirectionsScreen: React.FC = () => {
         toolbarEnabled={false}
         rotateEnabled={true}
         pitchEnabled={true}
-        scrollEnabled={!isNavigating} // Disable scrolling during navigation
-        zoomEnabled={!isNavigating}   // Disable manual zoom during navigation
-        rotateEnabled={!isNavigating} // Disable manual rotation during navigation
+        scrollEnabled={true} // Keep scrolling enabled during navigation
+        zoomEnabled={true}   // Keep zoom enabled during navigation
       >
         {/* User location marker */}
         {userLocation && (
