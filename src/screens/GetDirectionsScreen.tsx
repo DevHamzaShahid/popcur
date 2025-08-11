@@ -58,6 +58,7 @@ const GetDirectionsScreen: React.FC = () => {
   const actionSheetRef = useRef<ActionSheet>(null);
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [currentNavLocation, setCurrentNavLocation] = useState<UserLocation | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<ParkingSpot>(
     route.params.selectedSpot,
   );
@@ -133,7 +134,7 @@ const GetDirectionsScreen: React.FC = () => {
     setSelectedSpot(spot);
   };
 
-  const TARGET_NAV_ZOOM = 18.5; // Better navigation zoom level
+  const TARGET_NAV_ZOOM = 20; // Much tighter zoom for navigation
 
   const handleStartNavigation = () => {
     if (!userLocation || routeCoordinates.length === 0) return;
@@ -145,7 +146,7 @@ const GetDirectionsScreen: React.FC = () => {
       Geolocation.clearWatch(watchIdRef.current);
     }
     
-    // IMMEDIATE NAVIGATION START: Zoom in on current location and auto-rotate
+    // IMMEDIATE NAVIGATION START: Zoom in tight on current location and auto-rotate
     const { bearing: initialBearing, next } = computeUpcoming(
       userLocation,
       routeCoordinates,
@@ -154,15 +155,15 @@ const GetDirectionsScreen: React.FC = () => {
     lastHeadingRef.current = initialBearing;
     
     if (mapRef.current) {
-      // Center on current location (not look-ahead) for immediate start
+      // Center on current location with very tight zoom
       mapRef.current.animateCamera(
         {
           center: userLocation, // Center directly on user location
-          pitch: 60,
+          pitch: 65, // Increased pitch for better 3D effect
           heading: 360 - initialBearing, // Route points north immediately
-          zoom: TARGET_NAV_ZOOM,
+          zoom: TARGET_NAV_ZOOM, // Much tighter zoom
         },
-        { duration: 800 }, // Slightly longer for smooth start
+        { duration: 1000 }, // Longer animation to see the zoom effect
       );
     }
 
@@ -175,6 +176,7 @@ const GetDirectionsScreen: React.FC = () => {
         } = position.coords as any;
         const newLoc = { latitude, longitude };
         setUserLocation(newLoc);
+        setCurrentNavLocation(newLoc); // Track current navigation position
 
         // Determine current route direction
         const { bearing: upcomingBearing, next } = computeUpcoming(
@@ -223,6 +225,7 @@ const GetDirectionsScreen: React.FC = () => {
       watchIdRef.current = null;
     }
     setIsNavigating(false);
+    setCurrentNavLocation(null); // Clear navigation location
   };
 
   const computeUpcoming = (
@@ -272,21 +275,21 @@ const GetDirectionsScreen: React.FC = () => {
     const smoothedHeading = (previous + diff * 0.4 + 360) % 360; // Increased smoothing
     lastHeadingRef.current = smoothedHeading;
 
-    // Dynamic zoom based on distance to destination
+    // Dynamic zoom based on distance to destination - much tighter
     let dynamicZoom = TARGET_NAV_ZOOM;
     if (distanceToDest < 0.05) { // Very close - zoom in more
-      dynamicZoom = TARGET_NAV_ZOOM + 1.5;
+      dynamicZoom = TARGET_NAV_ZOOM + 2;
     } else if (distanceToDest < 0.1) { // Close - zoom in slightly
-      dynamicZoom = TARGET_NAV_ZOOM + 0.5;
-    } else if (distanceToDest > 1) { // Far away - zoom out slightly
-      dynamicZoom = TARGET_NAV_ZOOM - 0.5;
+      dynamicZoom = TARGET_NAV_ZOOM + 1;
+    } else if (distanceToDest > 1) { // Far away - still keep tight zoom
+      dynamicZoom = TARGET_NAV_ZOOM - 1;
     }
 
     // CONTINUOUS AUTO-ROTATION: Keep route pointing north
     mapRef.current.animateCamera(
       {
         center,
-        pitch: 60,
+        pitch: 65, // Higher pitch for better navigation view
         heading: 360 - smoothedHeading, // Always keep route pointing "up"
         zoom: dynamicZoom,
       },
@@ -391,23 +394,27 @@ const GetDirectionsScreen: React.FC = () => {
           </Marker>
         ))}
 
-        {/* Route directions */}
+        {/* Route directions - Dynamic route from current location to destination */}
         {userLocation && selectedSpot && (
           <MapViewDirections
-            origin={userLocation}
+            key={`route_${isNavigating ? 'nav' : 'preview'}_${selectedSpot.id}`}
+            origin={isNavigating && currentNavLocation ? currentNavLocation : userLocation} // Use current nav location during navigation
             destination={{
               latitude: selectedSpot.latitude,
               longitude: selectedSpot.longitude,
             }}
             apikey={CONFIG.GOOGLE_MAPS_API_KEY}
-            strokeWidth={4}
-            strokeColor="#000000"
+            strokeWidth={isNavigating ? 6 : 4} // Thicker line during navigation
+            strokeColor={isNavigating ? "#1E40AF" : "#000000"} // Blue during navigation, black otherwise
+            optimizeWaypoints={true}
+            resetOnChange={true} // Force route recalculation when origin changes
             onReady={onDirectionsReady}
             onError={errorMessage => {
               console.log('Directions error:', errorMessage);
               // For demo purposes, create a simple straight line
+              const currentOrigin = isNavigating && currentNavLocation ? currentNavLocation : userLocation;
               const demoRoute = [
-                userLocation,
+                currentOrigin,
                 {
                   latitude: selectedSpot.latitude,
                   longitude: selectedSpot.longitude,
@@ -415,7 +422,7 @@ const GetDirectionsScreen: React.FC = () => {
               ];
               setRouteCoordinates(demoRoute);
               setRouteInfo({
-                distance: calculateDistance(userLocation, selectedSpot),
+                distance: calculateDistance(currentOrigin, selectedSpot),
                 duration: selectedSpot.estimatedTime,
               });
             }}
