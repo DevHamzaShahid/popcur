@@ -1,20 +1,19 @@
 import { ParkingSpot } from '../types';
 import { calculateDistance } from '../utils/mapUtils';
 
-// San Francisco area coordinates for demo
 const USER_LOCATION = {
-  latitude: 37.7749,
-  longitude: -122.4194,
+  latitude: 31.4712,
+  longitude: 74.2655,
 };
 
 export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   {
     id: '1',
-    latitude: 37.7849,
-    longitude: -122.4094,
+    latitude: 31.4712,
+    longitude: 74.2655,
     price: 8,
     available: true,
-    address: '17th St',
+    address: 'Main Blvd Johar Town',
     block: 'Block J2',
     house: 'House 12',
     estimatedTime: 30,
@@ -22,11 +21,11 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   },
   {
     id: '2',
-    latitude: 37.7849,
-    longitude: -122.4124,
+    latitude: 31.4725,
+    longitude: 74.2628,
     price: 6,
     available: true,
-    address: '18th St',
+    address: 'Street 18',
     block: 'Block J2',
     house: 'House 14',
     estimatedTime: 25,
@@ -34,11 +33,11 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   },
   {
     id: '3',
-    latitude: 37.7879,
-    longitude: -122.4154,
+    latitude: 31.4748,
+    longitude: 74.2689,
     price: 10,
     available: true,
-    address: '19th St',
+    address: 'Street 19',
     block: 'Block K1',
     house: 'House 16',
     estimatedTime: 35,
@@ -46,11 +45,11 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   },
   {
     id: '4',
-    latitude: 37.7819,
-    longitude: -122.4164,
+    latitude: 31.4696,
+    longitude: 74.2703,
     price: 4,
     available: true,
-    address: '16th St',
+    address: 'Street 16',
     block: 'Block H3',
     house: 'House 8',
     estimatedTime: 20,
@@ -58,11 +57,11 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   },
   {
     id: '5',
-    latitude: 37.7889,
-    longitude: -122.4184,
+    latitude: 31.4762,
+    longitude: 74.2667,
     price: 12,
     available: true,
-    address: '20th St',
+    address: 'Street 20',
     block: 'Block L2',
     house: 'House 18',
     estimatedTime: 40,
@@ -70,11 +69,11 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
   },
   {
     id: '6',
-    latitude: 37.7809,
-    longitude: -122.4134,
+    latitude: 31.4681,
+    longitude: 74.2632,
     price: 7,
     available: true,
-    address: '15th St',
+    address: 'Street 15',
     block: 'Block G4',
     house: 'House 6',
     estimatedTime: 28,
@@ -83,15 +82,20 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
 ];
 
 // Calculate actual distances and mark nearest spot
-export const getProcessedParkingSpots = (userLocation = USER_LOCATION): ParkingSpot[] => {
+export const getProcessedParkingSpots = (
+  userLocation = USER_LOCATION,
+): ParkingSpot[] => {
   const spotsWithDistance = MOCK_PARKING_SPOTS.map(spot => ({
     ...spot,
-    distance: calculateDistance(userLocation, { latitude: spot.latitude, longitude: spot.longitude }),
+    distance: calculateDistance(userLocation, {
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+    }),
   }));
 
   // Find nearest spot
-  const nearestSpot = spotsWithDistance.reduce((nearest, current) => 
-    current.distance < nearest.distance ? current : nearest
+  const nearestSpot = spotsWithDistance.reduce((nearest, current) =>
+    current.distance < nearest.distance ? current : nearest,
   );
 
   return spotsWithDistance.map(spot => ({

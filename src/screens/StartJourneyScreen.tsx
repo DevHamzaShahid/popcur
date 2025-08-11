@@ -8,19 +8,35 @@ import {
   Text,
   Alert,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import MapView, {
+  Marker,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
+  Polyline,
+} from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 
-import { RootStackParamList, ParkingSpot, UserLocation, NavigationRoute } from '../types';
+import {
+  RootStackParamList,
+  ParkingSpot,
+  UserLocation,
+  NavigationRoute,
+} from '../types';
 import { calculateBearing, calculateDistance } from '../utils/mapUtils';
 import DirectionArrowMarker from '../components/DirectionArrowMarker';
 import Svg, { Path } from 'react-native-svg';
 
-type StartJourneyScreenNavigationProp = StackNavigationProp<RootStackParamList, 'StartJourney'>;
-type StartJourneyScreenRouteProp = RouteProp<RootStackParamList, 'StartJourney'>;
+type StartJourneyScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'StartJourney'
+>;
+type StartJourneyScreenRouteProp = RouteProp<
+  RootStackParamList,
+  'StartJourney'
+>;
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -29,19 +45,21 @@ const StartJourneyScreen: React.FC = () => {
   const route = useRoute<StartJourneyScreenRouteProp>();
   const mapRef = useRef<MapView>(null);
   const watchIdRef = useRef<number | null>(null);
-  
+
   const { selectedSpot, route: navigationRoute } = route.params;
-  
+
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [heading, setHeading] = useState<number>(0);
-  const [remainingDistance, setRemainingDistance] = useState<number>(navigationRoute.distance);
+  const [remainingDistance, setRemainingDistance] = useState<number>(
+    navigationRoute.distance,
+  );
   const [estimatedArrival, setEstimatedArrival] = useState<string>('');
   const [isNavigating, setIsNavigating] = useState<boolean>(true);
 
   useEffect(() => {
     startNavigation();
     calculateArrivalTime();
-    
+
     return () => {
       if (watchIdRef.current !== null) {
         Geolocation.clearWatch(watchIdRef.current);
@@ -51,17 +69,18 @@ const StartJourneyScreen: React.FC = () => {
 
   useEffect(() => {
     if (userLocation) {
-      const distance = calculateDistance(
-        userLocation,
-        { latitude: selectedSpot.latitude, longitude: selectedSpot.longitude }
-      );
+      const distance = calculateDistance(userLocation, {
+        latitude: selectedSpot.latitude,
+        longitude: selectedSpot.longitude,
+      });
       setRemainingDistance(distance);
-      
+
       // Check if arrived (within 50 meters)
-      if (distance < 0.03) { // approximately 50 meters
+      if (distance < 0.03) {
+        // approximately 50 meters
         handleArrival();
       }
-      
+
       // Update map camera to follow user with heading
       updateMapCamera();
     }
@@ -69,16 +88,16 @@ const StartJourneyScreen: React.FC = () => {
 
   const startNavigation = () => {
     const watchId = Geolocation.watchPosition(
-      (position) => {
+      position => {
         const { latitude, longitude, heading: deviceHeading } = position.coords;
         const newLocation: UserLocation = {
           latitude,
           longitude,
           heading: deviceHeading || 0,
         };
-        
+
         setUserLocation(newLocation);
-        
+
         if (deviceHeading !== null && deviceHeading !== undefined) {
           setHeading(deviceHeading);
         } else {
@@ -89,43 +108,51 @@ const StartJourneyScreen: React.FC = () => {
           }
         }
       },
-      (error) => {
+      error => {
         console.log('Navigation error:', error);
-        Alert.alert('Navigation Error', 'Unable to get your current location for navigation.');
+        Alert.alert(
+          'Navigation Error',
+          'Unable to get your current location for navigation.',
+        );
       },
       {
         enableHighAccuracy: true,
         timeout: 5000,
         maximumAge: 1000,
         distanceFilter: 5, // Update every 5 meters
-      }
+      },
     );
-    
+
     watchIdRef.current = watchId;
   };
 
   const updateMapCamera = () => {
     if (userLocation && mapRef.current) {
       // Navigation mode: keep user centered and map rotated according to heading
-      mapRef.current.animateCamera({
-        center: {
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
+      mapRef.current.animateCamera(
+        {
+          center: {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          pitch: 60, // 3D view angle
+          heading: 360 - heading, // Invert heading to keep route "up"
+          zoom: 18, // Close zoom for navigation
         },
-        pitch: 60, // 3D view angle
-        heading: 360 - heading, // Invert heading to keep route "up"
-        zoom: 18, // Close zoom for navigation
-      }, { duration: 500 });
+        { duration: 500 },
+      );
     }
   };
 
   const calculateArrivalTime = () => {
     const now = new Date();
-    const arrivalTime = new Date(now.getTime() + navigationRoute.duration * 60000);
-    const timeString = arrivalTime.toLocaleTimeString([], { 
-      hour: '2-digit', 
+    const arrivalTime = new Date(
+      now.getTime() + navigationRoute.duration * 60000,
+    );
+    const timeString = arrivalTime.toLocaleTimeString([], {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
     setEstimatedArrival(timeString);
   };
@@ -140,29 +167,25 @@ const StartJourneyScreen: React.FC = () => {
           text: 'Done',
           onPress: () => navigation.navigate('SetPriceRange'),
         },
-      ]
+      ],
     );
   };
 
   const handleEndNavigation = () => {
-    Alert.alert(
-      'End Navigation',
-      'Are you sure you want to end navigation?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'End',
-          style: 'destructive',
-          onPress: () => {
-            setIsNavigating(false);
-            if (watchIdRef.current !== null) {
-              Geolocation.clearWatch(watchIdRef.current);
-            }
-            navigation.navigate('SetPriceRange');
-          },
+    Alert.alert('End Navigation', 'Are you sure you want to end navigation?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'End',
+        style: 'destructive',
+        onPress: () => {
+          setIsNavigating(false);
+          if (watchIdRef.current !== null) {
+            Geolocation.clearWatch(watchIdRef.current);
+          }
+          navigation.navigate('SetPriceRange');
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const renderCloseIcon = () => (
@@ -187,10 +210,10 @@ const StartJourneyScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
-      
+
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+        provider={PROVIDER_DEFAULT}
         style={styles.map}
         showsUserLocation={false}
         showsMyLocationButton={false}
@@ -198,8 +221,8 @@ const StartJourneyScreen: React.FC = () => {
         mapType="standard"
         rotateEnabled={true}
         pitchEnabled={true}
-        scrollEnabled={false}
-        zoomEnabled={false}
+        // scrollEnabled={false}
+        // zoomEnabled={false}
       >
         {/* User location marker with heading */}
         {userLocation && (
@@ -227,10 +250,7 @@ const StartJourneyScreen: React.FC = () => {
                 stroke="#FFFFFF"
                 strokeWidth="2"
               />
-              <Path
-                d="M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
-                fill="#FFFFFF"
-              />
+              <Path d="M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" fill="#FFFFFF" />
             </Svg>
           </View>
         </Marker>
@@ -251,20 +271,23 @@ const StartJourneyScreen: React.FC = () => {
       <View style={styles.navigationOverlay}>
         {/* Top section */}
         <View style={styles.topSection}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleEndNavigation}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleEndNavigation}
+          >
             {renderCloseIcon()}
           </TouchableOpacity>
-          
+
           <View style={styles.routeInfo}>
             <Text style={styles.routeTitle}>Route</Text>
             <Text style={styles.routeSubtitle}>Turn Right to Parking Spot</Text>
           </View>
-          
+
           <View style={styles.placeholder} />
         </View>
 
         {/* Bottom section */}
-        <View style={styles.bottomSection}>
+        {/* <View style={styles.bottomSection}>
           <View style={styles.navigationInfo}>
             <View style={styles.distanceContainer}>
               <Text style={styles.distanceText}>{formatDistance(remainingDistance)}</Text>
@@ -290,7 +313,7 @@ const StartJourneyScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-        </View>
+        </View> */}
       </View>
     </View>
   );

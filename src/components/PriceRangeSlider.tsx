@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Slider } from '@react-native-community/slider';
+import Slider from '@react-native-community/slider';
 
 interface PriceRangeSliderProps {
   min: number;
@@ -37,7 +37,7 @@ const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Price Range</Text>
-      
+
       <View style={styles.sliderContainer}>
         <Text style={styles.label}>Min: ${minValue}</Text>
         <Slider
@@ -48,12 +48,11 @@ const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
           onValueChange={handleMinChange}
           minimumTrackTintColor="#000000"
           maximumTrackTintColor="#E5E7EB"
-          thumbStyle={styles.thumb}
-          trackStyle={styles.track}
+          thumbTintColor="#000000"
           step={1}
         />
       </View>
-      
+
       <View style={styles.sliderContainer}>
         <Text style={styles.label}>Max: ${maxValue}</Text>
         <Slider
@@ -64,8 +63,7 @@ const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
           onValueChange={handleMaxChange}
           minimumTrackTintColor="#000000"
           maximumTrackTintColor="#E5E7EB"
-          thumbStyle={styles.thumb}
-          trackStyle={styles.track}
+          thumbTintColor="#000000"
           step={1}
         />
       </View>
@@ -97,15 +95,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
   },
-  thumb: {
-    backgroundColor: '#000000',
-    width: 20,
-    height: 20,
-  },
-  track: {
-    height: 4,
-    borderRadius: 2,
-  },
+  // Thumb and track styling are controlled via native props
 });
 
 export default PriceRangeSlider;

@@ -9,14 +9,26 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, {
+  Marker,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
+} from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import ActionSheet from 'react-native-actions-sheet';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-import { RootStackParamList, ParkingSpot, UserLocation, PriceRange } from '../types';
-import { getProcessedParkingSpots, DEFAULT_REGION } from '../constants/mockData';
+import {
+  RootStackParamList,
+  ParkingSpot,
+  UserLocation,
+  PriceRange,
+} from '../types';
+import {
+  getProcessedParkingSpots,
+  DEFAULT_REGION,
+} from '../constants/mockData';
 import { clusterParkingSpots, calculateDistance } from '../utils/mapUtils';
 import PriceRangeSlider from '../components/PriceRangeSlider';
 import PopcornMarker from '../components/PopcornMarker';
@@ -24,7 +36,10 @@ import ParkingClusterMarker from '../components/ParkingClusterMarker';
 import DirectionArrowMarker from '../components/DirectionArrowMarker';
 import Svg, { Path } from 'react-native-svg';
 
-type SetPriceRangeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SetPriceRange'>;
+type SetPriceRangeScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'SetPriceRange'
+>;
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -32,7 +47,7 @@ const SetPriceRangeScreen: React.FC = () => {
   const navigation = useNavigation<SetPriceRangeScreenNavigationProp>();
   const mapRef = useRef<MapView>(null);
   const actionSheetRef = useRef<ActionSheet>(null);
-  
+
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [parkingSpots, setParkingSpots] = useState<ParkingSpot[]>([]);
   const [filteredSpots, setFilteredSpots] = useState<ParkingSpot[]>([]);
@@ -59,7 +74,8 @@ const SetPriceRangeScreen: React.FC = () => {
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
           title: 'Location Permission',
-          message: 'This app needs access to location to show parking spots near you.',
+          message:
+            'This app needs access to location to show parking spots near you.',
           buttonNeutral: 'Ask Me Later',
           buttonNegative: 'Cancel',
           buttonPositive: 'OK',
@@ -75,30 +91,38 @@ const SetPriceRangeScreen: React.FC = () => {
 
   const getCurrentLocation = () => {
     Geolocation.getCurrentPosition(
-      (position) => {
+      position => {
         const { latitude, longitude } = position.coords;
         setUserLocation({ latitude, longitude });
-        
+
         // Animate to user location
-        mapRef.current?.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        }, 1000);
+        mapRef.current?.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          },
+          1000,
+        );
       },
-      (error) => {
+      error => {
         console.log('Location error:', error);
         // Use default location for demo
-        setUserLocation({ latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude });
+        setUserLocation({
+          latitude: DEFAULT_REGION.latitude,
+          longitude: DEFAULT_REGION.longitude,
+        });
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
   };
 
   const handlePriceRangeChange = (min: number, max: number) => {
     setPriceRange({ min, max });
-    const filtered = parkingSpots.filter(spot => spot.price >= min && spot.price <= max);
+    const filtered = parkingSpots.filter(
+      spot => spot.price >= min && spot.price <= max,
+    );
     setFilteredSpots(filtered);
   };
 
@@ -118,10 +142,11 @@ const SetPriceRangeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       <MapView
+        key={'AIzaSyDwK5Xp8GFmWZ1yTpOin7Ma2gFLXxpIqhM'}
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+        provider={PROVIDER_DEFAULT}
         style={styles.map}
         initialRegion={DEFAULT_REGION}
         showsUserLocation={false}
@@ -140,7 +165,7 @@ const SetPriceRangeScreen: React.FC = () => {
         )}
 
         {/* Parking spot clusters */}
-        {clusters.map((cluster) => (
+        {clusters.map(cluster => (
           <Marker
             key={cluster.id}
             coordinate={cluster.coordinate}
@@ -155,7 +180,9 @@ const SetPriceRangeScreen: React.FC = () => {
                 <PopcornMarker />
               ) : (
                 <View style={styles.regularMarker}>
-                  <Text style={styles.markerText}>{cluster.spots[0].price}</Text>
+                  <Text style={styles.markerText}>
+                    {cluster.spots[0].price}
+                  </Text>
                 </View>
               )
             ) : (
@@ -197,13 +224,14 @@ const SetPriceRangeScreen: React.FC = () => {
             initialMax={priceRange.max}
             onValueChange={handlePriceRangeChange}
           />
-          
+
           <View style={styles.spotsInfo}>
             <View style={styles.spotsIcon}>
               <Text style={styles.spotsNumber}>{filteredSpots.length}</Text>
             </View>
             <Text style={styles.spotsText}>
-              available parking spots within <Text style={styles.boldText}>0.5 miles</Text>
+              available parking spots within{' '}
+              <Text style={styles.boldText}>0.5 miles</Text>
             </Text>
           </View>
         </View>
