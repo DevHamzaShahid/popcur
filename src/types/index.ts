@@ -12,6 +12,7 @@ export interface ParkingSpot {
   estimatedTime: number; // in minutes
   distance: number; // in miles
   isNearest?: boolean;
+  popcorn?: any;
 }
 
 export interface ParkingCluster {

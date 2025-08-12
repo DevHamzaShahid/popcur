@@ -116,7 +116,7 @@ const StartJourneyScreen: React.FC = () => {
         );
       },
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: false,
         timeout: 5000,
         maximumAge: 1000,
         distanceFilter: 5, // Update every 5 meters

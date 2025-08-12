@@ -8,15 +8,17 @@ import {
   Text,
   Platform,
   PermissionsAndroid,
+  Image,
 } from 'react-native';
 import MapView, {
+  Circle,
   Marker,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
 } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import ActionSheet from 'react-native-actions-sheet';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 import {
@@ -35,6 +37,10 @@ import PopcornMarker from '../components/PopcornMarker';
 import ParkingClusterMarker from '../components/ParkingClusterMarker';
 import DirectionArrowMarker from '../components/DirectionArrowMarker';
 import Svg, { Path } from 'react-native-svg';
+import { getBoundingCircle } from '../helper/helper';
+import LngButton from '../buttons/longbtn';
+import { svgImages } from '../assets/svg/svgs';
+import CompassIcon from '../components/rotatingIcon';
 
 type SetPriceRangeScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -53,6 +59,17 @@ const SetPriceRangeScreen: React.FC = () => {
   const [filteredSpots, setFilteredSpots] = useState<ParkingSpot[]>([]);
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 15 });
   const [clusters, setClusters] = useState<any[]>([]);
+  const [mapZoom, setMapZoom] = useState(0);
+
+  const handleRegionChange = region => {
+    const zoom = Math.round(Math.log(360 / region.longitudeDelta) / Math.LN2);
+    setMapZoom(zoom);
+  };
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    actionSheetRef.current?.show();
+  }, []);
 
   useEffect(() => {
     requestLocationPermission();
@@ -60,6 +77,24 @@ const SetPriceRangeScreen: React.FC = () => {
     setParkingSpots(spots);
     setFilteredSpots(spots);
   }, []);
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!userLocation) return;
+    if (filteredSpots.length === 0) return;
+
+    const allCoords = [
+      userLocation,
+      ...filteredSpots.map(s => ({
+        latitude: s.latitude,
+        longitude: s.longitude,
+      })),
+    ];
+
+    mapRef.current.fitToCoordinates(allCoords, {
+      edgePadding: { top: 220, right: 180, bottom: 220, left: 180 },
+      animated: true,
+    });
+  }, [userLocation, filteredSpots, isFocused]);
 
   useEffect(() => {
     if (userLocation && filteredSpots.length > 0) {
@@ -93,6 +128,8 @@ const SetPriceRangeScreen: React.FC = () => {
     Geolocation.getCurrentPosition(
       position => {
         const { latitude, longitude } = position.coords;
+        console.log('position>>>>', position);
+
         setUserLocation({ latitude, longitude });
 
         // Animate to user location
@@ -114,8 +151,23 @@ const SetPriceRangeScreen: React.FC = () => {
           longitude: DEFAULT_REGION.longitude,
         });
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 },
     );
+  };
+  const getNearestSpot = () => {
+    if (!userLocation || filteredSpots.length === 0) return null;
+    let nearestSpot = filteredSpots[0];
+    let minDistance = calculateDistance(userLocation, nearestSpot);
+
+    filteredSpots.forEach(spot => {
+      const dist = calculateDistance(userLocation, spot);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestSpot = spot;
+      }
+    });
+
+    return nearestSpot;
   };
 
   const handlePriceRangeChange = (min: number, max: number) => {
@@ -138,13 +190,13 @@ const SetPriceRangeScreen: React.FC = () => {
       />
     </Svg>
   );
+  const nearestSpot = getNearestSpot();
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
 
       <MapView
-        key={'AIzaSyDwK5Xp8GFmWZ1yTpOin7Ma2gFLXxpIqhM'}
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={styles.map}
@@ -152,7 +204,29 @@ const SetPriceRangeScreen: React.FC = () => {
         showsUserLocation={false}
         showsMyLocationButton={false}
         toolbarEnabled={false}
+        onRegionChange={handleRegionChange}
       >
+        {userLocation &&
+          filteredSpots.length > 0 &&
+          (() => {
+            const circle = getBoundingCircle([
+              userLocation,
+              ...filteredSpots.map(s => ({
+                latitude: s.latitude,
+                longitude: s.longitude,
+              })),
+            ]);
+            if (!circle) return null;
+            return (
+              <Circle
+                center={circle.center}
+                radius={circle.radius * 1.1} // Slight padding
+                strokeWidth={2}
+                strokeColor="rgba(187, 187, 186, 0.3)"
+                fillColor="rgba(187, 187, 186, 0.3)"
+              />
+            );
+          })()}
         {/* User location marker */}
         {userLocation && (
           <Marker
@@ -160,12 +234,13 @@ const SetPriceRangeScreen: React.FC = () => {
             anchor={{ x: 0.5, y: 0.5 }}
             flat={true}
           >
-            <DirectionArrowMarker />
+            {svgImages.UserNotNav}
+            {/* <DirectionArrowMarker /> */}
           </Marker>
         )}
 
         {/* Parking spot clusters */}
-        {clusters.map(cluster => (
+        {clusters.map((cluster, index) => (
           <Marker
             key={cluster.id}
             coordinate={cluster.coordinate}
@@ -175,41 +250,47 @@ const SetPriceRangeScreen: React.FC = () => {
               }
             }}
           >
-            {cluster.spots.length === 1 ? (
-              cluster.spots[0].isNearest ? (
-                <PopcornMarker />
-              ) : (
-                <View style={styles.regularMarker}>
-                  <Text style={styles.markerText}>
-                    {cluster.spots[0].price}
-                  </Text>
-                </View>
-              )
-            ) : (
-              <ParkingClusterMarker count={cluster.count} />
-            )}
+            {svgImages[`Pop${index}`]}
+
+            {/* <Image
+              source={require('../assets/pop1.png')}
+              style={{ height: 40, width: 40 }}
+            /> */}
           </Marker>
         ))}
       </MapView>
 
       {/* Floating Pin Button */}
-      <TouchableOpacity style={styles.pinButton}>
-        {renderPinIcon()}
-      </TouchableOpacity>
-
-      {/* Get Directions Button */}
-      <TouchableOpacity
-        style={styles.getDirectionsButton}
-        onPress={() => actionSheetRef.current?.show()}
+      <View
+        style={{
+          position: 'absolute',
+          top: 30,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          width: '100%',
+          paddingHorizontal: 20,
+        }}
       >
-        <Text style={styles.getDirectionsText}>Get Directions</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => actionSheetRef.current?.show()}>
+          <Image
+            source={require('../assets/3books.png')}
+            style={{ height: 70, width: 70 }}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity>
+          <Image
+            source={require('../assets/8p.png')}
+            style={{ height: 50, width: 50 }}
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Bottom Sheet */}
       <ActionSheet
         ref={actionSheetRef}
         gestureEnabled={true}
         headerAlwaysVisible={true}
+        defaultOverlayOpacity={0}
         CustomHeaderComponent={
           <View style={styles.bottomSheetHeader}>
             <View style={styles.bottomSheetHandle} />
@@ -217,23 +298,93 @@ const SetPriceRangeScreen: React.FC = () => {
         }
       >
         <View style={styles.bottomSheetContent}>
-          <PriceRangeSlider
-            min={0}
-            max={15}
-            initialMin={priceRange.min}
-            initialMax={priceRange.max}
-            onValueChange={handlePriceRangeChange}
-          />
-
-          <View style={styles.spotsInfo}>
-            <View style={styles.spotsIcon}>
-              <Text style={styles.spotsNumber}>{filteredSpots.length}</Text>
+          {/* <CompassIcon icon={require('../assets/Icon.png')} size={60} /> */}
+          <View
+            style={{
+              width: '90%',
+              borderRadius: 15,
+              borderColor: '#000000',
+              borderWidth: 0.4,
+              alignSelf: 'center',
+              padding: 10,
+              backgroundColor: '#fff',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image
+                source={require('../assets/locationPin.jpg')}
+                style={{ height: 20, width: 20 }}
+              />
+              <Text style={{ fontSize: 20, color: 'black' }}>
+                {nearestSpot?.block || '!block'},{' '}
+                {nearestSpot?.house || '!house'}
+              </Text>
+              <Image
+                source={require('../assets/fav.png')}
+                style={{ height: 40, width: 40, marginLeft: 20 }}
+              />
+              <Image
+                source={require('../assets/share.png')}
+                style={{ height: 40, width: 40, marginLeft: 10 }}
+              />
+              <TouchableOpacity
+                style={{
+                  marginLeft: 10,
+                }}
+                onPress={() => actionSheetRef.current?.hide()}
+              >
+                <Image
+                  source={require('../assets/greyCross.png')}
+                  style={{ height: 40, width: 40 }}
+                />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.spotsText}>
-              available parking spots within{' '}
-              <Text style={styles.boldText}>0.5 miles</Text>
-            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginVertical: 10,
+              }}
+            >
+              <Image
+                source={require('../assets/locationPin.jpg')}
+                style={{ height: 20, width: 20 }}
+              />
+              <Text style={{ fontSize: 16, color: 'grey' }}>
+                {nearestSpot?.estimatedTime || 0} min .{' '}
+                {nearestSpot?.distance.toFixed(4) || 0} miles
+              </Text>
+            </View>
+
+            <PriceRangeSlider
+              min={0}
+              max={15}
+              initialMin={priceRange.min}
+              initialMax={priceRange.max}
+              onValueChange={handlePriceRangeChange}
+            />
+            <View style={styles.spotsInfo}>
+              <View style={styles.spotsIcon}>
+                <Text style={styles.spotsNumber}>{filteredSpots.length}</Text>
+              </View>
+              <Text style={styles.spotsText}>
+                available parking spots within{' '}
+                <Text style={styles.boldText}>1.2 miles</Text>
+              </Text>
+            </View>
           </View>
+          <LngButton
+            title={'Get Directions'}
+            onPress={() => {
+              if (nearestSpot) {
+                navigation.navigate('GetDirections', {
+                  selectedSpot: nearestSpot,
+                  spotCount: filteredSpots.length,
+                });
+              }
+            }}
+            styles={{ alignSelf: 'center', marginVertical: 15, marginTop: 30 }}
+          />
         </View>
       </ActionSheet>
     </View>
@@ -249,9 +400,6 @@ const styles = StyleSheet.create({
     height: screenHeight,
   },
   pinButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
     width: 48,
     height: 48,
     backgroundColor: '#000000',
@@ -308,6 +456,7 @@ const styles = StyleSheet.create({
   bottomSheetHeader: {
     alignItems: 'center',
     paddingVertical: 10,
+    backgroundColor: '#f8f8f8',
   },
   bottomSheetHandle: {
     width: 40,
@@ -317,6 +466,8 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     paddingBottom: 30,
+    backgroundColor: '#f8f8f8',
+    paddingTop: 20,
   },
   spotsInfo: {
     flexDirection: 'row',

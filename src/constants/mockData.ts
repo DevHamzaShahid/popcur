@@ -7,6 +7,7 @@ const USER_LOCATION = {
 };
 
 export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
+  // Johar Town spots
   {
     id: '1',
     latitude: 31.4712,
@@ -18,6 +19,7 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 12',
     estimatedTime: 30,
     distance: 0.5,
+    popcorn: require('../assets/pop1.png'),
   },
   {
     id: '2',
@@ -30,6 +32,7 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 14',
     estimatedTime: 25,
     distance: 0.4,
+    popcorn: require('../assets/pop2.png'),
   },
   {
     id: '3',
@@ -42,6 +45,7 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 16',
     estimatedTime: 35,
     distance: 0.7,
+    popcorn: require('../assets/pop3.png'),
   },
   {
     id: '4',
@@ -54,6 +58,7 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 8',
     estimatedTime: 20,
     distance: 0.3,
+    popcorn: require('../assets/pop4.png'),
   },
   {
     id: '5',
@@ -66,6 +71,7 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 18',
     estimatedTime: 40,
     distance: 0.8,
+    popcorn: require('../assets/pop5.png'),
   },
   {
     id: '6',
@@ -78,9 +84,54 @@ export const MOCK_PARKING_SPOTS: ParkingSpot[] = [
     house: 'House 6',
     estimatedTime: 28,
     distance: 0.4,
+    popcorn: require('../assets/pop6.png'),
+  },
+
+  // Wapda Town
+  {
+    id: '7',
+    latitude: 31.4467,
+    longitude: 74.2675,
+    price: 9,
+    available: true,
+    address: 'Wapda Ave',
+    block: 'Block D1',
+    house: 'House 22',
+    estimatedTime: 32,
+    distance: 0.6,
+    popcorn: require('../assets/pop7.png'),
+  },
+
+  // PIA Road (Dagwood)
+  {
+    id: '8',
+    latitude: 31.4932,
+    longitude: 74.3085,
+    price: 11,
+    available: true,
+    address: 'PIA Main Blvd',
+    block: 'Dagwood Area',
+    house: 'House 5',
+    estimatedTime: 38,
+    distance: 0.9,
+    popcorn: require('../assets/pop8.png'),
+  },
+
+  // Township
+  {
+    id: '9',
+    latitude: 31.4461,
+    longitude: 74.3074,
+    price: 5,
+    available: true,
+    address: 'Township Market',
+    block: 'Block 4',
+    house: 'House 3',
+    estimatedTime: 22,
+    distance: 0.5,
+    popcorn: require('../assets/pop9.png'),
   },
 ];
-
 // Calculate actual distances and mark nearest spot
 export const getProcessedParkingSpots = (
   userLocation = USER_LOCATION,

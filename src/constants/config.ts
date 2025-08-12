@@ -1,7 +1,7 @@
 // Configuration constants
 export const CONFIG = {
   // Replace with your actual Google Maps API key
-  GOOGLE_MAPS_API_KEY: 'AIzaSyDwK5Xp8GFmWZ1yTpOin7Ma2gFLXxpIqhM',
+  GOOGLE_MAPS_API_KEY: 'AIzaSyDvYJCIl0WDbNQEA0LQewjcnSJq1hye_cw',
 
   // Default map region (San Francisco)
   DEFAULT_LATITUDE: 37.7749,

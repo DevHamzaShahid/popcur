@@ -7,9 +7,13 @@ import {
   TouchableOpacity,
   Text,
   Platform,
+  PermissionsAndroid,
+  Image,
 } from 'react-native';
 import MapView, {
+  Circle,
   Marker,
+  Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
 } from 'react-native-maps';
@@ -39,6 +43,9 @@ import { CONFIG } from '../constants/config';
 import PopcornMarker from '../components/PopcornMarker';
 import DirectionArrowMarker from '../components/DirectionArrowMarker';
 import Svg, { Path } from 'react-native-svg';
+import { getClusterCircleData } from '../helper/helper';
+import CrossBtn from '../buttons/crossbtn';
+import { svgImages } from '../assets/svg/svgs';
 
 type GetDirectionsScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -58,9 +65,13 @@ const GetDirectionsScreen: React.FC = () => {
   const actionSheetRef = useRef<ActionSheet>(null);
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [currentNavLocation, setCurrentNavLocation] = useState<UserLocation | null>(null);
+  const [currentNavLocation, setCurrentNavLocation] =
+    useState<UserLocation | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<ParkingSpot>(
     route.params.selectedSpot,
+  );
+  const [spotCount, setSpotCount] = useState<ParkingSpot>(
+    route?.params?.spotCount || 0,
   );
   const [parkingSpots, setParkingSpots] = useState<ParkingSpot[]>([]);
   const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
@@ -77,20 +88,38 @@ const GetDirectionsScreen: React.FC = () => {
   );
   const hasPreviewedRef = useRef<boolean>(false);
 
+  async function requestLocationPermission() {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  }
   useEffect(() => {
-    getCurrentLocation();
-    const spots = getProcessedParkingSpots();
-    setParkingSpots(spots);
+    (async () => {
+      const hasPermission = await requestLocationPermission();
+      if (hasPermission) {
+        console.log('hasPermission>>>', hasPermission);
 
-    // Show bottom sheet immediately
-    setTimeout(() => {
-      actionSheetRef.current?.show();
-    }, 500);
-    return () => {
-      if (watchIdRef.current !== null) {
-        Geolocation.clearWatch(watchIdRef.current);
+        getCurrentLocation();
+      } else {
+        console.warn('Location permission denied');
       }
-    };
+      const spots = getProcessedParkingSpots();
+      setParkingSpots(spots);
+
+      // Show bottom sheet immediately
+      setTimeout(() => {
+        actionSheetRef.current?.show();
+      }, 500);
+      return () => {
+        if (watchIdRef.current !== null) {
+          Geolocation.clearWatch(watchIdRef.current);
+        }
+      };
+    })();
   }, []);
 
   useEffect(() => {
@@ -117,6 +146,8 @@ const GetDirectionsScreen: React.FC = () => {
     Geolocation.getCurrentPosition(
       position => {
         const { latitude, longitude } = position.coords;
+        console.log('latitude>>>', latitude);
+
         setUserLocation({ latitude, longitude });
       },
       error => {
@@ -126,7 +157,7 @@ const GetDirectionsScreen: React.FC = () => {
           longitude: DEFAULT_REGION.longitude,
         });
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 },
     );
   };
 
@@ -134,41 +165,50 @@ const GetDirectionsScreen: React.FC = () => {
     // If currently navigating, stop navigation first
     if (isNavigating) {
       stopNavigation();
-      
+
       // Reset map to overview when stopping navigation
       if (mapRef.current && userLocation) {
-        const coordinates = [
-          userLocation,
-          { latitude: spot.latitude, longitude: spot.longitude },
+        const allCoords = [
+          {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          ...parkingSpots.map(s => ({
+            latitude: s.latitude,
+            longitude: s.longitude,
+          })),
         ];
-        const region = getRegionForCoordinates(coordinates, 0.02);
-        if (region) {
-          mapRef.current.animateToRegion(region, 800);
-        }
+        mapRef.current.fitToCoordinates(allCoords, {
+          edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
+          animated: true,
+        });
       }
     }
-    
+
     // Set new selected spot
     setSelectedSpot(spot);
-    
+
     // Show bottom sheet for the new spot
-    setTimeout(() => {
-      actionSheetRef.current?.show();
-    }, isNavigating ? 600 : 300); // Longer delay if stopping navigation
+    setTimeout(
+      () => {
+        actionSheetRef.current?.show();
+      },
+      isNavigating ? 600 : 300,
+    ); // Longer delay if stopping navigation
   };
 
   const TARGET_NAV_ZOOM = 18; // Better zoom level for functionality
 
   const handleStartNavigation = () => {
     if (!userLocation || routeCoordinates.length === 0) return;
-    actionSheetRef.current?.hide();
+    // actionSheetRef.current?.hide();
     setIsNavigating(true);
     hasPreviewedRef.current = true;
 
     if (watchIdRef.current !== null) {
       Geolocation.clearWatch(watchIdRef.current);
     }
-    
+
     // IMMEDIATE NAVIGATION START: Zoom in very tight on current location and auto-rotate
     const { bearing: initialBearing, next } = computeUpcoming(
       userLocation,
@@ -176,7 +216,7 @@ const GetDirectionsScreen: React.FC = () => {
     );
     setHeading(initialBearing);
     lastHeadingRef.current = initialBearing;
-    
+
     if (mapRef.current) {
       // Center on current location with tight zoom
       mapRef.current.animateCamera(
@@ -206,7 +246,7 @@ const GetDirectionsScreen: React.FC = () => {
           newLoc,
           routeCoordinates,
         );
-        
+
         // Use route bearing for consistent north-pointing behavior
         const resolvedHeading = upcomingBearing;
         setHeading(resolvedHeading);
@@ -238,6 +278,62 @@ const GetDirectionsScreen: React.FC = () => {
     watchIdRef.current = watchId;
   };
 
+  const fitToAllPoints = () => {
+    if (mapRef.current && userLocation && parkingSpots.length > 0) {
+      const allCoords = [
+        { latitude: userLocation.latitude, longitude: userLocation.longitude },
+        ...parkingSpots.map(s => ({
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })),
+      ];
+
+      mapRef.current.fitToCoordinates(allCoords, {
+        edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
+        animated: true,
+      });
+    }
+  };
+
+  // const handleRecenter = () => {
+  //   if (!userLocation) return;
+
+  //   if (isNavigating) {
+  //     // Navigation-style recenter
+  //     const { bearing } = computeUpcoming(userLocation, routeCoordinates);
+  //     lastHeadingRef.current = bearing;
+  //     setHeading(bearing);
+
+  //     mapRef.current?.animateCamera(
+  //       {
+  //         center: userLocation,
+  //         pitch: 65,
+  //         heading: bearing,
+  //         zoom: TARGET_NAV_ZOOM,
+  //       },
+  //       { duration: 1000 },
+  //     );
+  //   } else {
+  //     // Fit all points if not navigating
+  //     fitToAllPoints();
+  //   }
+  // };
+  useEffect(() => {
+    if (userLocation && parkingSpots.length > 0 && mapRef.current) {
+      const allCoords = [
+        { latitude: userLocation.latitude, longitude: userLocation.longitude },
+        ...parkingSpots.map(s => ({
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })),
+      ];
+
+      mapRef.current.fitToCoordinates(allCoords, {
+        edgePadding: { top: 220, right: 120, bottom: 220, left: 120 },
+        animated: true,
+      });
+    }
+  }, [parkingSpots]);
   const stopNavigation = () => {
     if (watchIdRef.current !== null) {
       Geolocation.clearWatch(watchIdRef.current);
@@ -287,7 +383,7 @@ const GetDirectionsScreen: React.FC = () => {
     distanceToDest: number,
   ) => {
     if (!mapRef.current) return;
-    
+
     // Smooth the heading to avoid jittery camera movement
     const previous = lastHeadingRef.current;
     const diff = ((newHeading - previous + 540) % 360) - 180; // shortest angle
@@ -296,11 +392,14 @@ const GetDirectionsScreen: React.FC = () => {
 
     // Dynamic zoom based on distance to destination
     let dynamicZoom = TARGET_NAV_ZOOM;
-    if (distanceToDest < 0.05) { // Very close - zoom in more
+    if (distanceToDest < 0.05) {
+      // Very close - zoom in more
       dynamicZoom = TARGET_NAV_ZOOM + 1.5;
-    } else if (distanceToDest < 0.1) { // Close - zoom in slightly
+    } else if (distanceToDest < 0.1) {
+      // Close - zoom in slightly
       dynamicZoom = TARGET_NAV_ZOOM + 0.5;
-    } else if (distanceToDest > 0.5) { // Far away - slight zoom out
+    } else if (distanceToDest > 0.5) {
+      // Far away - slight zoom out
       dynamicZoom = TARGET_NAV_ZOOM - 1;
     }
 
@@ -315,6 +414,7 @@ const GetDirectionsScreen: React.FC = () => {
       { duration: 400 }, // Faster animation for better responsiveness
     );
   };
+  console.log('isNavigating>>>>', isNavigating);
 
   const onDirectionsReady = (result: any) => {
     setRouteCoordinates(result.coordinates);
@@ -375,8 +475,39 @@ const GetDirectionsScreen: React.FC = () => {
         rotateEnabled={true}
         pitchEnabled={true}
         scrollEnabled={true} // Keep scrolling enabled during navigation
-        zoomEnabled={true}   // Keep zoom enabled during navigation
+        zoomEnabled={true} // Keep zoom enabled during navigation
       >
+        {userLocation && parkingSpots.length > 0 && (
+          <Circle
+            center={
+              getClusterCircleData([
+                {
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                },
+                ...parkingSpots.map(s => ({
+                  latitude: s.latitude,
+                  longitude: s.longitude,
+                })),
+              ]).center
+            }
+            radius={
+              getClusterCircleData([
+                {
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                },
+                ...parkingSpots.map(s => ({
+                  latitude: s.latitude,
+                  longitude: s.longitude,
+                })),
+              ]).radius
+            }
+            strokeColor="rgba(187, 187, 186, 0.3)"
+            fillColor="rgba(187, 187, 186, 0.3)"
+          />
+        )}
+
         {/* User location marker */}
         {userLocation && (
           <Marker
@@ -384,18 +515,19 @@ const GetDirectionsScreen: React.FC = () => {
             anchor={{ x: 0.5, y: 0.5 }}
             flat={true}
           >
-            <DirectionArrowMarker heading={isNavigating ? heading : 0} />
+            {!isNavigating ? svgImages.UserNotNav : svgImages.UserNav}
+            {/* <DirectionArrowMarker heading={isNavigating ? heading : 0} /> */}
           </Marker>
         )}
 
         {/* All parking spots */}
-        {parkingSpots.map(spot => (
+        {parkingSpots.map((spot, index) => (
           <Marker
             key={spot.id}
             coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
             onPress={() => handleMarkerPress(spot)}
           >
-            {spot.id === selectedSpot.id ? (
+            {/* {spot.id === selectedSpot.id ? (
               <PopcornMarker size={35} />
             ) : spot.isNearest ? (
               <PopcornMarker />
@@ -408,65 +540,75 @@ const GetDirectionsScreen: React.FC = () => {
               >
                 <Text style={styles.markerText}>{spot.price}</Text>
               </View>
-            )}
+            )} */}
+            {svgImages[`Pop${index}`]}
           </Marker>
         ))}
 
         {/* Route directions - Dynamic route from current location to destination */}
-        {userLocation && selectedSpot && (
-          <MapViewDirections
-            key={`route_${isNavigating ? 'nav' : 'preview'}_${selectedSpot.id}`}
-            origin={isNavigating && currentNavLocation ? currentNavLocation : userLocation} // Use current nav location during navigation
-            destination={{
-              latitude: selectedSpot.latitude,
-              longitude: selectedSpot.longitude,
-            }}
-            apikey={CONFIG.GOOGLE_MAPS_API_KEY}
-            strokeWidth={isNavigating ? 6 : 4} // Thicker line during navigation
-            strokeColor={isNavigating ? "#1E40AF" : "#000000"} // Blue during navigation, black otherwise
-            optimizeWaypoints={true}
-            resetOnChange={true} // Force route recalculation when origin changes
-            onReady={onDirectionsReady}
-            onError={errorMessage => {
-              console.log('Directions error:', errorMessage);
-              // For demo purposes, create a simple straight line
-              const currentOrigin = isNavigating && currentNavLocation ? currentNavLocation : userLocation;
-              const demoRoute = [
-                currentOrigin,
-                {
+        {isNavigating
+          ? routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeWidth={6}
+                strokeColor="rgba(0, 0, 0, 0.9)"
+              />
+            )
+          : userLocation &&
+            selectedSpot && (
+              <MapViewDirections
+                key={`route_${isNavigating ? 'nav' : 'preview'}_${
+                  selectedSpot.id
+                }`}
+                origin={
+                  isNavigating && currentNavLocation
+                    ? currentNavLocation
+                    : userLocation
+                } // Use current nav location during navigation
+                destination={{
                   latitude: selectedSpot.latitude,
                   longitude: selectedSpot.longitude,
-                },
-              ];
-              setRouteCoordinates(demoRoute);
-              setRouteInfo({
-                distance: calculateDistance(currentOrigin, selectedSpot),
-                duration: selectedSpot.estimatedTime,
-              });
-            }}
-          />
-        )}
+                }}
+                apikey={CONFIG.GOOGLE_MAPS_API_KEY}
+                strokeWidth={isNavigating ? 6 : 4} // Thicker line during navigation
+                strokeColor={isNavigating ? '#1E40AF' : '#000000'} // Blue during navigation, black otherwise
+                optimizeWaypoints={true}
+                resetOnChange={true} // Force route recalculation when origin changes
+                onReady={onDirectionsReady}
+                onError={errorMessage => {
+                  console.log('Directions error:', errorMessage);
+                  // For demo purposes, create a simple straight line
+                  const currentOrigin =
+                    isNavigating && currentNavLocation
+                      ? currentNavLocation
+                      : userLocation;
+                  const demoRoute = [
+                    currentOrigin,
+                    {
+                      latitude: selectedSpot.latitude,
+                      longitude: selectedSpot.longitude,
+                    },
+                  ];
+                  setRouteCoordinates(demoRoute);
+                  setRouteInfo({
+                    distance: calculateDistance(currentOrigin, selectedSpot),
+                    duration: selectedSpot.estimatedTime,
+                  });
+                }}
+              />
+            )}
       </MapView>
 
-      {/* Top buttons */}
-      <View style={styles.topButtons}>
-        <TouchableOpacity
-          style={styles.topButton}
-          onPress={() => navigation.goBack()}
-        >
-          {renderCloseIcon()}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.topButton}>
-          {renderShareIcon()}
-        </TouchableOpacity>
-      </View>
-
+      {/* <TouchableOpacity style={styles.recenterButton} onPress={handleRecenter}>
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>⟳</Text>
+      </TouchableOpacity> */}
       {/* Bottom Sheet */}
       <ActionSheet
         ref={actionSheetRef}
-        gestureEnabled={true}
+        closeOnTouchBackdrop={false}
         headerAlwaysVisible={true}
+        defaultOverlayOpacity={0}
+        backgroundInteractionEnabled
         CustomHeaderComponent={
           <View style={styles.bottomSheetHeader}>
             <View style={styles.bottomSheetHandle} />
@@ -478,27 +620,33 @@ const GetDirectionsScreen: React.FC = () => {
             <Text style={styles.spotTitle}>
               {selectedSpot.house}, {selectedSpot.block}
             </Text>
-            <TouchableOpacity>
-              <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 5v14m7-7H5"
-                  stroke="#1F2937"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row' }}>
+              <Image
+                source={require('../assets/fav.png')}
+                style={{ height: 40, width: 40, marginLeft: 20 }}
+              />
+              <Image
+                source={require('../assets/share.png')}
+                style={{ height: 40, width: 40, marginLeft: 10 }}
+              />
+            </View>
+            {!isNavigating ? (
+              <CrossBtn isBlack={false} onPress={() => navigation.goBack()} />
+            ) : (
+              <CrossBtn isBlack={true} onPress={() => navigation.goBack()} />
+            )}
           </View>
 
           <View style={styles.spotDetails}>
             <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>{renderCarIcon()}</View>
+              <View style={styles.detailIcon}>
+                <Text>🚘</Text>
+              </View>
               <Text style={styles.detailText}>
                 {routeInfo
-                  ? `${routeInfo.duration} min`
+                  ? `${routeInfo.duration.toFixed(2)} mins`
                   : `${selectedSpot.estimatedTime} min`}{' '}
-                /{' '}
+                .{' '}
                 {routeInfo
                   ? `${routeInfo.distance.toFixed(1)} miles`
                   : `${selectedSpot.distance} miles`}
@@ -508,7 +656,7 @@ const GetDirectionsScreen: React.FC = () => {
             <View style={styles.spotsInfo}>
               <View style={styles.spotsIcon}>
                 <Text style={styles.spotsNumber}>
-                  {parkingSpots.filter(s => s.available).length}
+                  {spotCount || parkingSpots?.filter(s => s.available).length}
                 </Text>
               </View>
               <Text style={styles.spotsText}>
@@ -518,12 +666,14 @@ const GetDirectionsScreen: React.FC = () => {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={handleStartNavigation}
-          >
-            <Text style={styles.startButtonText}>Start</Text>
-          </TouchableOpacity>
+          {isNavigating || (
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={handleStartNavigation}
+            >
+              <Text style={styles.startButtonText}>Start</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ActionSheet>
     </View>
@@ -562,6 +712,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  recenterButton: {
+    position: 'absolute',
+    bottom: 500,
+    right: 20,
+    backgroundColor: 'red',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   regularMarker: {
     backgroundColor: '#FFD700',
     borderRadius: 15,
@@ -593,7 +759,7 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingBottom: 100,
   },
   spotHeader: {
     flexDirection: 'row',

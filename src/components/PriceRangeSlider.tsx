@@ -28,74 +28,67 @@ const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
     onValueChange(newMin, maxValue);
   };
 
-  const handleMaxChange = (value: number) => {
-    const newMax = Math.max(value, minValue + 1);
-    setMaxValue(newMax);
-    onValueChange(minValue, newMax);
-  };
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Price Range</Text>
-
-      <View style={styles.sliderContainer}>
-        <Text style={styles.label}>Min: ${minValue}</Text>
+    <View style={styles.wrapper}>
+      <Text style={styles.label}>Price Range</Text>
+      <View style={styles.sliderRow}>
         <Slider
           style={styles.slider}
           minimumValue={min}
           maximumValue={max}
           value={minValue}
           onValueChange={handleMinChange}
-          minimumTrackTintColor="#000000"
-          maximumTrackTintColor="#E5E7EB"
-          thumbTintColor="#000000"
+          minimumTrackTintColor="#000"
+          maximumTrackTintColor="#D1D5DB"
+          thumbTintColor="#000"
           step={1}
+          thumbImage={require('../assets/locationPin.jpg')}
         />
-      </View>
-
-      <View style={styles.sliderContainer}>
-        <Text style={styles.label}>Max: ${maxValue}</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={min}
-          maximumValue={max}
-          value={maxValue}
-          onValueChange={handleMaxChange}
-          minimumTrackTintColor="#000000"
-          maximumTrackTintColor="#E5E7EB"
-          thumbTintColor="#000000"
-          step={1}
-        />
+        <View style={styles.priceBox}>
+          <Text style={styles.priceText}>${minValue}</Text>
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 20,
-  },
-  sliderContainer: {
-    marginBottom: 15,
+  wrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   label: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 10,
+    color: '#374151',
+  },
+  sliderRow: {
+    flex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   slider: {
-    width: '100%',
-    height: 40,
+    flex: 1,
+    height: 60,
   },
-  // Thumb and track styling are controlled via native props
+  priceBox: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  priceText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+  },
 });
 
 export default PriceRangeSlider;
